@@ -1,0 +1,23 @@
+name: Match ID Eslestirme Testi
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu Klonla
+        uses: actions/checkout@v4
+
+      - name: Dart Ortamini Kur
+        uses: dart-lang/setup-dart@v1
+
+      - name: Paketleri Indir
+        run: dart pub get
+
+      - name: Kodu Calistir
+        run: dart run test_script.dart
