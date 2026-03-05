@@ -6,7 +6,7 @@ void main() async {
   int apiFootballId = 1491915; 
   int mackolikId = 4432754; // Sizin bulduğunuz 4296370 ID'sini de deneyebilirsiniz
   
-  String apiFootballKey = "API_KEYINIZI_BURAYA_YAZIN"; 
+  String apiFootballKey = "a0ba44abc06475107be5327c1ba2ae56"; 
 
   print("ScorePop Veri İnceleme (X-Ray) Modu Başlatıldı...\n");
 
