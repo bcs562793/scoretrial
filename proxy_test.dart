@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 
 // ─── TEST EDİLECEK PROXY LİSTESİ ────────────────────────────────
