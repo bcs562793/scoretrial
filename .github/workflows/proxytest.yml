@@ -1,4 +1,4 @@
-name: Match ID Eslestirme Testi
+name: proxy
 on:
   push:
     branches: [ "main", "master" ]
