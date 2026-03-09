@@ -1,0 +1,159 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+// ─── TEST EDİLECEK PROXY LİSTESİ ────────────────────────────────
+// Format: 'ip:port' — ücretsiz proxy'ler buraya eklenecek
+// https://free-proxy-list.net veya https://www.proxyscrape.com adreslerinden güncel liste alınabilir
+final List<String> _proxies = [
+  // Buraya proxy'leri ekle, örnek:
+  // '103.149.162.195:80',
+  // '51.158.68.68:8811',
+  // '20.111.54.16:8123',
+];
+
+// ─── TEST EDİLECEK ENDPOINT ─────────────────────────────────────
+const _testUrl = 'https://vd.mackolik.com/livedata?date=09/03/2026';
+const _timeout = Duration(seconds: 10);
+
+final _headers = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/javascript, */*; q=0.01',
+  'Accept-Language': 'tr-TR,tr;q=0.9',
+  'Referer': 'https://arsiv.mackolik.com/',
+};
+
+Future<void> main() async {
+  print('🔍 Mackolik Proxy Test Aracı');
+  print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  print('🎯 Hedef: $_testUrl\n');
+
+  if (_proxies.isEmpty) {
+    print('⚠️  Proxy listesi boş!');
+    print('   https://free-proxy-list.net adresinden HTTP/HTTPS proxy ekle');
+    print('   ve _proxies listesine "ip:port" formatında gir.\n');
+    
+    // Proxy olmadan direkt test
+    print('📡 Proxy olmadan direkt test yapılıyor...');
+    await _testDirect();
+    return;
+  }
+
+  final results = <Map<String, dynamic>>[];
+
+  for (final proxy in _proxies) {
+    final result = await _testProxy(proxy);
+    results.add(result);
+    
+    final emoji = result['success'] == true ? '✅' : '❌';
+    final ms = result['ms'] ?? '-';
+    final detail = result['detail'] ?? '';
+    print('$emoji $proxy — ${ms}ms — $detail');
+  }
+
+  print('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  final working = results.where((r) => r['success'] == true).toList();
+  print('📊 Sonuç: ${working.length}/${results.length} proxy çalışıyor');
+  
+  if (working.isNotEmpty) {
+    print('\n✅ ÇALIŞAN PROXY\'LER (worker\'a eklenebilir):');
+    for (final r in working) {
+      print('   "${r['proxy']}", // ${r['ms']}ms');
+    }
+  }
+}
+
+Future<void> _testDirect() async {
+  try {
+    final sw = Stopwatch()..start();
+    final res = await http.get(Uri.parse(_testUrl), headers: _headers).timeout(_timeout);
+    sw.stop();
+    
+    final body = res.body.trim();
+    final isBot = body.startsWith('<!DOCTYPE') || body.startsWith('<html');
+    
+    if (res.statusCode == 200 && !isBot) {
+      final data = jsonDecode(body);
+      final matchCount = (data['m'] as List?)?.length ?? 0;
+      print('✅ Direkt bağlantı: HTTP ${res.statusCode} | ${sw.elapsedMilliseconds}ms | $matchCount maç');
+    } else if (isBot) {
+      print('🚫 Direkt bağlantı: BOT ENGEL — IP bloklu, proxy gerekli');
+      print('   İlk 200 karakter: ${body.substring(0, body.length.clamp(0, 200))}');
+    } else {
+      print('❌ Direkt bağlantı: HTTP ${res.statusCode}');
+    }
+  } catch (e) {
+    print('❌ Direkt bağlantı hatası: $e');
+  }
+}
+
+Future<Map<String, dynamic>> _testProxy(String proxyStr) async {
+  final parts = proxyStr.split(':');
+  if (parts.length != 2) {
+    return {'proxy': proxyStr, 'success': false, 'detail': 'Geçersiz format'};
+  }
+  
+  final host = parts[0];
+  final port = int.tryParse(parts[1]);
+  if (port == null) {
+    return {'proxy': proxyStr, 'success': false, 'detail': 'Geçersiz port'};
+  }
+
+  try {
+    final sw = Stopwatch()..start();
+    
+    // HTTP proxy üzerinden bağlan
+    final client = HttpClient();
+    client.findProxy = (uri) => 'PROXY $host:$port';
+    client.connectionTimeout = _timeout;
+    
+    final request = await client.getUrl(Uri.parse(_testUrl));
+    _headers.forEach((k, v) => request.headers.set(k, v));
+    
+    final response = await request.close().timeout(_timeout);
+    sw.stop();
+    
+    final body = await response.transform(utf8.decoder).join();
+    client.close();
+    
+    final isBot = body.trim().startsWith('<!DOCTYPE') || body.trim().startsWith('<html');
+    
+    if (response.statusCode == 200 && !isBot) {
+      try {
+        final data = jsonDecode(body);
+        final matchCount = (data['m'] as List?)?.length ?? 0;
+        return {
+          'proxy': proxyStr,
+          'success': true,
+          'ms': sw.elapsedMilliseconds,
+          'detail': '$matchCount maç bulundu',
+        };
+      } catch (_) {
+        return {
+          'proxy': proxyStr,
+          'success': false,
+          'detail': 'JSON parse hatası',
+          'ms': sw.elapsedMilliseconds,
+        };
+      }
+    } else if (isBot) {
+      return {
+        'proxy': proxyStr,
+        'success': false,
+        'ms': sw.elapsedMilliseconds,
+        'detail': 'Bot engeli (bu proxy de bloklu)',
+      };
+    } else {
+      return {
+        'proxy': proxyStr,
+        'success': false,
+        'ms': sw.elapsedMilliseconds,
+        'detail': 'HTTP ${response.statusCode}',
+      };
+    }
+  } on TimeoutException {
+    return {'proxy': proxyStr, 'success': false, 'detail': 'Timeout (${_timeout.inSeconds}s)'};
+  } catch (e) {
+    return {'proxy': proxyStr, 'success': false, 'detail': e.toString().substring(0, e.toString().length.clamp(0, 60))};
+  }
+}
