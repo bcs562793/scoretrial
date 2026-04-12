@@ -32,7 +32,7 @@ jobs:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           MAX_SAYFA:            ${{ github.event.inputs.max_sayfa || '3' }}
-        run: node scripts/haber_cek.js
+        run: node haber_cek.js
 
       - name: Özet
         if: always()
