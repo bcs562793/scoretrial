@@ -1,0 +1,39 @@
+name: Mackolik Haber Çekici
+
+on:
+  schedule:
+    # Her saat başı çalış (UTC — Türkiye UTC+3)
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Elle de tetiklenebilir (Actions sekmesinden "Run workflow" butonu)
+    inputs:
+      max_sayfa:
+        description: 'Kaç sayfa taransın (varsayılan: 3)'
+        required: false
+        default: '3'
+
+jobs:
+  haber-cek:
+    name: Mackolik → Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Repoyu çek
+        uses: actions/checkout@v4
+
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Haberleri çek ve Supabase'e ekle
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MAX_SAYFA:            ${{ github.event.inputs.max_sayfa || '3' }}
+        run: node scripts/haber_cek.js
+
+      - name: Özet
+        if: always()
+        run: echo "Tamamlandı — $(date '+%d.%m.%Y %H:%M') UTC"
