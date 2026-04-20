@@ -1,9 +1,6 @@
 name: Dart Mail Bot Action
 
-on:
-  schedule:
-    # Her gün sabah 05:00 UTC'de (Türkiye saatiyle 08:00) çalışır
-    - cron: "0 5 * * *"
+on:    
   
   workflow_dispatch:
     # GitHub arayüzünden manuel olarak tetikleyebilmek için
@@ -21,6 +18,9 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+          
+      - name: Pubspec İçeriğini Kontrol Et
+        run: cat pubspec.yaml    
 
       - name: Bağımlılıkları Yükle (pub get)
         run: dart pub get
