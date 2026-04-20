@@ -3,7 +3,6 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
 void main() async {
-  // Değişkenleri alıyoruz
   final String? rawUser = Platform.environment['SMTP_USER'];
   final String? rawPass = Platform.environment['SMTP_PASS'];
   final String? rawTo = Platform.environment['MAIL_TO'];
@@ -13,29 +12,32 @@ void main() async {
     exit(1);
   }
 
-  // 1. HAYAT KURTARAN DOKUNUŞ: Trim ve ReplaceAll
-  // trim() -> Başındaki ve sonundaki görünmez boşlukları/enterları siler
-  // replaceAll(' ', '') -> Şifrenin ortasındaki boşlukları (abcd efgh -> abcdefgh) siler
+  // Verileri temizliyoruz
   final String smtpUser = rawUser.trim();
   final String smtpPass = rawPass.trim().replaceAll(' ', '');
   final String mailTo = rawTo.trim();
 
-  // 2. Sunucu Ayarı
-  final smtpServer = gmail(smtpUser, smtpPass);
+  // GITHUB ACTIONS İÇİN ÖZEL PORT 587 AYARI 🚀
+  // (gmail() fonksiyonu yerine GitHub sunucularında takılmayan 587 portunu kullanıyoruz)
+  final smtpServer = SmtpServer(
+    'smtp.gmail.com',
+    port: 587,
+    username: smtpUser,
+    password: smtpPass,
+    ssl: false, // Bu ayarın 'false' olması, güvenliğin kapalı olduğu anlamına GELMEZ. 
+                // 587 portunda STARTTLS (gelişmiş güvenlik) kullanılacağını sisteme bildirir.
+    allowInsecure: false,
+  );
 
-  // 3. Mesaj
   final message = Message()
     ..from = Address(smtpUser, 'Otomasyon Botu')
     ..recipients.add(mailTo)
     ..subject = 'Sistem Bildirimi: Görev Tamamlandı 🚀'
-    ..text = 'Merhaba,\n\nBu e-posta, GitHub Actions üzerinden sorunsuz bir şekilde ulaştı!'
-    ..html = '<h3>Tebrikler!</h3><p>Botunuz artık boşluk hatalarına takılmadan çalışıyor.</p>';
+    ..text = 'Merhaba,\n\nBu e-posta, GitHub Actions üzerinden Port 587 kullanılarak sorunsuz bir şekilde ulaştı!';
 
-  // 4. Gönderim
   try {
-    print('E-posta gönderiliyor... (Kullanıcı: $smtpUser)');
-    // Timeout süresini manuel 30 saniyeye çekiyoruz ki boşuna 1 dakika beklemesin
-    final sendReport = await send(message, smtpServer).timeout(const Duration(seconds: 30));
+    print('Google SMTP Sunucusuna (Port 587) bağlanılıyor...');
+    final sendReport = await send(message, smtpServer).timeout(const Duration(seconds: 45));
     print('E-posta BAŞARIYLA gönderildi: ${sendReport.toString()}');
   } catch (e) {
     print('MAALESEF GÖNDERİLEMEDİ: $e');
