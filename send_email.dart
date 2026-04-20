@@ -1,49 +1,52 @@
 import 'dart:io';
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 void main() async {
-  // GitHub Secrets üzerinden gelen şifreleri alıyoruz
-  final String? rawUser = Platform.environment['SMTP_USER'];
-  final String? rawPass = Platform.environment['SMTP_PASS'];
-  final String? rawTo = Platform.environment['MAIL_TO'];
+  final String? apiKey = Platform.environment['SENDGRID_API_KEY'];
+  final String? mailTo  = Platform.environment['MAIL_TO'];
+  final String? mailFrom = Platform.environment['MAIL_FROM']; // SendGrid'de doğrulanmış adres
 
-  if (rawUser == null || rawPass == null || rawTo == null) {
-    print('Hata: Gerekli e-posta çevresel değişkenleri eksik.');
+  if (apiKey == null || mailTo == null || mailFrom == null) {
+    print('Hata: Gerekli çevresel değişkenler eksik.');
     exit(1);
   }
 
-  // GÜVENLİK VE TEMİZLİK FİLTRESİ
-  // Kopyala-yapıştır yaparken araya sızan boşluk, tırnak veya enter işaretlerini yok eder.
-  final String smtpUser = rawUser.replaceAll(RegExp(r'[^a-zA-Z0-9@.\-_]'), '');
-  final String smtpPass = rawPass.replaceAll(RegExp(r'[^a-zA-Z0-9]'), ''); 
-  final String mailTo = rawTo.replaceAll(RegExp(r'[^a-zA-Z0-9@.\-_]'), '');
+  final body = jsonEncode({
+    "personalizations": [
+      {
+        "to": [{"email": mailTo}]
+      }
+    ],
+    "from": {"email": mailFrom, "name": "Otomasyon Botu"},
+    "subject": "Sistem Bildirimi: Başarılı 🎉",
+    "content": [
+      {
+        "type": "text/html",
+        "value": "<h3>Tebrikler! 🚀</h3><p>GitHub Actions üzerinden sorunsuz ulaştı!</p>"
+      }
+    ]
+  });
 
-  // SUNUCU AYARLARI (Port 465 ve Güvenlik Duvarı Aşma)
-  final smtpServer = SmtpServer(
-    'smtp.gmail.com',
-    port: 465,
-    username: smtpUser,
-    password: smtpPass,
-    ssl: true,
-    ignoreBadCertificate: true, // GitHub sunucularındaki SSL el sıkışma hatalarını engeller
-  );
-
-  // E-POSTA İÇERİĞİ
-  final message = Message()
-    ..from = Address(smtpUser, 'Otomasyon Botu')
-    ..recipients.add(mailTo)
-    ..subject = 'Sistem Bildirimi: Başarılı 🎉'
-    ..text = 'Merhaba,\n\nBu e-posta, GitHub Actions üzerinden tüm engelleri aşarak sorunsuz bir şekilde ulaştı!\n\nİyi çalışmalar.'
-    ..html = '<h3>Tebrikler! 🚀</h3><p>Bu e-posta, <strong>GitHub Actions</strong> üzerinden tüm engelleri aşarak sorunsuz bir şekilde ulaştı!</p><p>İyi çalışmalar.</p>';
-
-  // GÖNDERİM İŞLEMİ
   try {
-    print('Google Sunucusuna (Port 465) bağlanılıyor...');
-    final sendReport = await send(message, smtpServer).timeout(const Duration(seconds: 30));
-    print('E-posta BAŞARIYLA gönderildi: ${sendReport.toString()}');
+    print('SendGrid API\'ye istek gönderiliyor...');
+    final response = await http.post(
+      Uri.parse('https://api.sendgrid.com/v3/mail/send'),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: body,
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 202) {
+      print('E-posta BAŞARIYLA gönderildi! (HTTP 202)');
+    } else {
+      print('Hata: ${response.statusCode} - ${response.body}');
+      exit(1);
+    }
   } catch (e) {
-    print('MAALESEF GÖNDERİLEMEDİ: $e');
+    print('GÖNDERILEMEDI: $e');
     exit(1);
   }
 }
