@@ -1,0 +1,35 @@
+name: Dart Mail Bot Action
+
+on:
+  schedule:
+    # Her gün sabah 05:00 UTC'de (Türkiye saatiyle 08:00) çalışır
+    - cron: "0 5 * * *"
+  
+  workflow_dispatch:
+    # GitHub arayüzünden manuel olarak tetikleyebilmek için
+
+jobs:
+  send-email:
+    name: "E-Posta Gönderme Görevi"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repoyu Klonla
+        uses: actions/checkout@v4
+
+      - name: Dart Kurulumu
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Bağımlılıkları Yükle (pub get)
+        run: dart pub get
+
+      - name: Dart Scriptini Çalıştır
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: dart run send_email.dart
