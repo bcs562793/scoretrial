@@ -3,37 +3,42 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
 void main() async {
-  // Artık SMTP_HOST ve SMTP_PORT çekmemize gerek yok, gmail() fonksiyonu halledecek
-  final String? smtpUser = Platform.environment['SMTP_USER'];
-  final String? smtpPass = Platform.environment['SMTP_PASS'];
-  final String? mailTo = Platform.environment['MAIL_TO'];
+  // Değişkenleri alıyoruz
+  final String? rawUser = Platform.environment['SMTP_USER'];
+  final String? rawPass = Platform.environment['SMTP_PASS'];
+  final String? rawTo = Platform.environment['MAIL_TO'];
 
-  if (smtpUser == null || smtpPass == null || mailTo == null) {
-    print('Hata: Gerekli e-posta çevresel değişkenleri eksik. Lütfen GitHub Secrets\'ı kontrol edin.');
+  if (rawUser == null || rawPass == null || rawTo == null) {
+    print('Hata: Gerekli e-posta çevresel değişkenleri eksik.');
     exit(1);
   }
 
-  // GMAIL İÇİN KESİN ÇÖZÜM 🚀
-  // Arka planda güvenli SSL portunu (465) ve doğru host'u otomatik ayarlar
+  // 1. HAYAT KURTARAN DOKUNUŞ: Trim ve ReplaceAll
+  // trim() -> Başındaki ve sonundaki görünmez boşlukları/enterları siler
+  // replaceAll(' ', '') -> Şifrenin ortasındaki boşlukları (abcd efgh -> abcdefgh) siler
+  final String smtpUser = rawUser.trim();
+  final String smtpPass = rawPass.trim().replaceAll(' ', '');
+  final String mailTo = rawTo.trim();
+
+  // 2. Sunucu Ayarı
   final smtpServer = gmail(smtpUser, smtpPass);
 
-  // Gönderilecek mesajın detayları
+  // 3. Mesaj
   final message = Message()
     ..from = Address(smtpUser, 'Otomasyon Botu')
     ..recipients.add(mailTo)
     ..subject = 'Sistem Bildirimi: Görev Tamamlandı 🚀'
-    ..text = 'Merhaba,\n\nBu e-posta, GitHub Actions üzerinde çalışan Dart botunuz tarafından otomatik olarak gönderilmiştir.\n\nİyi çalışmalar!'
-    ..html = '<h3>Merhaba,</h3><p>Bu e-posta, <strong>GitHub Actions</strong> üzerinde çalışan Dart botunuz tarafından otomatik olarak gönderilmiştir.</p><p>İyi çalışmalar!</p>';
+    ..text = 'Merhaba,\n\nBu e-posta, GitHub Actions üzerinden sorunsuz bir şekilde ulaştı!'
+    ..html = '<h3>Tebrikler!</h3><p>Botunuz artık boşluk hatalarına takılmadan çalışıyor.</p>';
 
+  // 4. Gönderim
   try {
-    print('E-posta gönderiliyor...');
-    final sendReport = await send(message, smtpServer);
-    print('E-posta başarıyla gönderildi: ${sendReport.toString()}');
-  } on MailerException catch (e) {
-    print('E-posta gönderimi başarısız oldu.');
-    for (var p in e.problems) {
-      print('Problem: ${p.code}: ${p.msg}');
-    }
+    print('E-posta gönderiliyor... (Kullanıcı: $smtpUser)');
+    // Timeout süresini manuel 30 saniyeye çekiyoruz ki boşuna 1 dakika beklemesin
+    final sendReport = await send(message, smtpServer).timeout(const Duration(seconds: 30));
+    print('E-posta BAŞARIYLA gönderildi: ${sendReport.toString()}');
+  } catch (e) {
+    print('MAALESEF GÖNDERİLEMEDİ: $e');
     exit(1);
   }
 }
