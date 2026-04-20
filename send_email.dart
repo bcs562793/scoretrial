@@ -3,28 +3,19 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
 void main() async {
-  // GitHub Secrets üzerinden gelecek çevresel değişkenleri al
-  final String? smtpHost = Platform.environment['SMTP_HOST'];
-  final String? smtpPortStr = Platform.environment['SMTP_PORT'];
+  // Artık SMTP_HOST ve SMTP_PORT çekmemize gerek yok, gmail() fonksiyonu halledecek
   final String? smtpUser = Platform.environment['SMTP_USER'];
   final String? smtpPass = Platform.environment['SMTP_PASS'];
   final String? mailTo = Platform.environment['MAIL_TO'];
 
-  if (smtpHost == null || smtpPortStr == null || smtpUser == null || smtpPass == null || mailTo == null) {
-    print('Hata: Gerekli SMTP çevresel değişkenleri eksik. Lütfen GitHub Secrets\'ı kontrol edin.');
+  if (smtpUser == null || smtpPass == null || mailTo == null) {
+    print('Hata: Gerekli e-posta çevresel değişkenleri eksik. Lütfen GitHub Secrets\'ı kontrol edin.');
     exit(1);
   }
 
-  final int smtpPort = int.tryParse(smtpPortStr) ?? 465;
-
-  // SMTP Sunucu yapılandırması
-  final smtpServer = SmtpServer(
-    smtpHost,
-    port: smtpPort,
-    username: smtpUser,
-    password: smtpPass,
-    ssl: smtpPort == 465, // 465 genelde SSL içindir, 587 kullanıyorsan ignoreBadCertificate vb. ayarlar gerekebilir
-  );
+  // GMAIL İÇİN KESİN ÇÖZÜM 🚀
+  // Arka planda güvenli SSL portunu (465) ve doğru host'u otomatik ayarlar
+  final smtpServer = gmail(smtpUser, smtpPass);
 
   // Gönderilecek mesajın detayları
   final message = Message()
